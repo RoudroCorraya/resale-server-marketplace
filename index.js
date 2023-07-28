@@ -2,6 +2,7 @@ const express = require('express');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const cors = require('cors');
 require('dotenv').config();
+const jwt = require('jsonwebtoken');
 const app = express();
 
 const stripe = require("stripe")(process.env.STRIPE_SECRET);
@@ -28,6 +29,25 @@ const client = new MongoClient(uri, {
   }
 });
 
+ function verifyJWT(req, res, next){
+  console.log('jetauthoraization', req.headers.autorization);
+  const authheader = req.headers.autorization;
+  if(!authheader){
+    return res.status(401).send({message: 'unauthorized access'})
+  }
+  const token = authheader.split(' ')[1];
+
+  jwt.verify(token, process.env.ACCESS_TOKEN_JWT, function(err, decoded){
+    console.log('err decodes', err, decoded);
+    if(err){
+      return res.status(401).send({message: 'unauthorized access'});
+    }
+     req.decoded = decoded;
+    next();
+  });
+ 
+ }
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -37,6 +57,7 @@ async function run() {
     const usersCollection = client.db('resale-categories').collection('users');
     const bookingInfoCollection = client.db('resale-categories').collection('bookingInfo');
     const paymentfoCollection = client.db('resale-categories').collection('paymentDetails');
+    const WishLishfoCollection = client.db('resale-categories').collection('WishLish');
     //maek connection end
 
     //define route start
@@ -77,26 +98,78 @@ async function run() {
     //   res.send(eachcategories);
     // });
 
-    app.post('/users', async (req, res) => {
+    app.post('/users', verifyJWT, async (req, res) => {
+      const decoded = req.decoded.email;
+      console.log('inside user api', decoded.email);
       const user = req.body;
+      const userEmail = user.email;
+      console.log('userjwt', userEmail);
+      if(userEmail !== decoded.email){
+        return res.status(403).send({message: 'unauthorized access'});
+      }
       const result = await usersCollection.insertOne(user);
       res.send(result);
+    });
+    // app.get('/jwt', async(req, res) =>{
+    //   const email = req.query.email;
+    //   console.log(req.headers.authorization);
+    //   const query = {email};
+    //   const user = await usersCollection.findOne(query);
+    //   if(user){
+    //     const token = jwt.sign({email}, process.env.ACCESS_TOKEN_JWT, {expiresIn: '6h'});
+    //     return res.send({accessToken : token});
+    //   }
+    //   res.status(403).send({accessToken: 'forbidden access'});
+      
+    //   console.log(user);
+
+
+    // });
+    app.post('/jwt', async(req, res) =>{
+      const email = req.body;
+      // console.log('tokenjwt', email);
+      const token = jwt.sign({email}, process.env.ACCESS_TOKEN_JWT, {expiresIn: '6h'});
+      console.log('tokenjwt', token);
+      res.send({token});
+      
+      // if(user){
+      //   const token = jwt.sign({email}, process.env.ACCESS_TOKEN_JWT, {expiresIn: '6h'});
+        
+      //   return res.send({accessToken: token});
+        
+      // }
+      // res.status(403).send({accessToken: 'forbidden access'});
+      
+      
     });
     app.post('/booking', async (req, res) => {
       const bookingInfo = req.body;
       const result = await bookingInfoCollection.insertOne(bookingInfo);
       res.send(result);
     });
-    app.get('/dashboard/orders', async (req, res) => {
-      console.log(req.query.email);
+    app.get('/dashboard/orders',verifyJWT, async (req, res) => {
+      // const decoded = req.decoded;
+      // console.log('orderinside decoded', decoded.email);
+      
+      // if(decoded.email !== req.query.email){
+      //   return res.status(403).send({message: 'unauthorized access'})
+      // }
+      // console.log('inside order api', decoded);
+      const decoded = req.decoded.email;
+      // console.log('orderinside decoded', decoded.email);
       let query = {};
       const bookinbEmail = req.query.email;
+      // console.log('bookingemail', bookinbEmail);
+
       if (req.query.email) {
         query = {
           buyer: bookinbEmail
         }
+        if(query.buyer !== decoded.email){
+          return res.status(403).send({message: 'unauthorized access'});
+        }
       }
-
+      
       const result = await bookingInfoCollection.find(query).toArray();
       res.send(result);
     });
@@ -246,9 +319,14 @@ app.delete('/buyer/:_id', async(req, res)=>{
 //delete buyer end
 
 //mybuyer part start
-app.get('/dashboard/mybuyerfind/:SellerEmail', async(req, res) =>{
+app.get('/dashboard/mybuyerfind/:SellerEmail', verifyJWT, async(req, res) =>{
+  const decoded = req.decoded.email;
+  console.log('insidemybuyerfind', decoded.email);
   const SellerEmail = req.params.SellerEmail;
-  console.log('roxs cheak', SellerEmail);
+  console.log('sellerEmail', SellerEmail);
+  if(SellerEmail!== decoded.email){
+    return res.status(403).send({message: 'unauthorized access'});
+  }
   const query = {SellerEmail};
   const result = await bookingInfoCollection.find(query).toArray();
   res.send(result);
@@ -266,6 +344,33 @@ app.delete('/myproduct/:_id', async(req, res)=>{
   const result = await categoriesCollection.deleteOne(query);
   res.send(result);
 });
+//add wishlist start
+app.post('/wishlish', async(req, res) =>{
+  const wishlish = req.body;
+   
+   const result = await WishLishfoCollection.insertOne(wishlish);
+   res.send(result);
+})
+//add wishlist end
+
+//dashboard buyer wishList start
+app.get('/dashboard/wishlist/:buyerEmail', async(req, res) =>{
+  const buyerEmail = req.params.buyerEmail;
+  console.log('buyeremail wishList', buyerEmail);
+  const query = {buyerEmail};
+  const result = await WishLishfoCollection.find(query).toArray();
+  res.send(result);
+
+})
+//dashboard buyer wishList end
+app.delete('/wishlist/:productID', async(req, res)=>{
+  const productID = req.params.productID;
+  console.log('productId', productID);
+  const query = {productID: productID};
+  const result = await WishLishfoCollection.deleteOne(query);
+  res.send(result);
+});
+
 
 
 
