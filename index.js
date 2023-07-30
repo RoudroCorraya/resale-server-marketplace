@@ -29,24 +29,24 @@ const client = new MongoClient(uri, {
   }
 });
 
- function verifyJWT(req, res, next){
+function verifyJWT(req, res, next) {
   console.log('jetauthoraization', req.headers.autorization);
   const authheader = req.headers.autorization;
-  if(!authheader){
-    return res.status(401).send({message: 'unauthorized access'})
+  if (!authheader) {
+    return res.status(401).send({ message: 'unauthorized access' })
   }
   const token = authheader.split(' ')[1];
 
-  jwt.verify(token, process.env.ACCESS_TOKEN_JWT, function(err, decoded){
+  jwt.verify(token, process.env.ACCESS_TOKEN_JWT, function (err, decoded) {
     console.log('err decodes', err, decoded);
-    if(err){
-      return res.status(401).send({message: 'unauthorized access'});
+    if (err) {
+      return res.status(401).send({ message: 'unauthorized access' });
     }
-     req.decoded = decoded;
+    req.decoded = decoded;
     next();
   });
- 
- }
+
+}
 
 async function run() {
   try {
@@ -62,7 +62,7 @@ async function run() {
 
     //define route start
     app.get('/categories', async (req, res) => {
-      
+
       const query = {};
       const categories = await categoriesCollection.find(query).toArray();
 
@@ -104,8 +104,8 @@ async function run() {
       const user = req.body;
       const userEmail = user.email;
       console.log('userjwt', userEmail);
-      if(userEmail !== decoded.email){
-        return res.status(403).send({message: 'unauthorized access'});
+      if (userEmail !== decoded.email) {
+        return res.status(403).send({ message: 'unauthorized access' });
       }
       const result = await usersCollection.insertOne(user);
       res.send(result);
@@ -120,37 +120,37 @@ async function run() {
     //     return res.send({accessToken : token});
     //   }
     //   res.status(403).send({accessToken: 'forbidden access'});
-      
+
     //   console.log(user);
 
 
     // });
-    app.post('/jwt', async(req, res) =>{
+    app.post('/jwt', async (req, res) => {
       const email = req.body;
       // console.log('tokenjwt', email);
-      const token = jwt.sign({email}, process.env.ACCESS_TOKEN_JWT, {expiresIn: '6h'});
+      const token = jwt.sign({ email }, process.env.ACCESS_TOKEN_JWT, { expiresIn: '6h' });
       console.log('tokenjwt', token);
-      res.send({token});
-      
+      res.send({ token });
+
       // if(user){
       //   const token = jwt.sign({email}, process.env.ACCESS_TOKEN_JWT, {expiresIn: '6h'});
-        
+
       //   return res.send({accessToken: token});
-        
+
       // }
       // res.status(403).send({accessToken: 'forbidden access'});
-      
-      
+
+
     });
     app.post('/booking', async (req, res) => {
       const bookingInfo = req.body;
       const result = await bookingInfoCollection.insertOne(bookingInfo);
       res.send(result);
     });
-    app.get('/dashboard/orders',verifyJWT, async (req, res) => {
+    app.get('/dashboard/orders', verifyJWT, async (req, res) => {
       // const decoded = req.decoded;
       // console.log('orderinside decoded', decoded.email);
-      
+
       // if(decoded.email !== req.query.email){
       //   return res.status(403).send({message: 'unauthorized access'})
       // }
@@ -165,11 +165,11 @@ async function run() {
         query = {
           buyer: bookinbEmail
         }
-        if(query.buyer !== decoded.email){
-          return res.status(403).send({message: 'unauthorized access'});
+        if (query.buyer !== decoded.email) {
+          return res.status(403).send({ message: 'unauthorized access' });
         }
       }
-      
+
       const result = await bookingInfoCollection.find(query).toArray();
       res.send(result);
     });
@@ -261,34 +261,34 @@ async function run() {
     //payment intent end
 
     //payment data inserting start
-    app.post('/payments', async(req, res) =>{
+    app.post('/payments', async (req, res) => {
       const payment = req.body;
       const result = await paymentfoCollection.insertOne(payment);
       const _id = payment.bookingId;
-     
-      const query = {_id: new ObjectId(_id)};
-     
-      
-      const updatedDoc ={
+
+      const query = { _id: new ObjectId(_id) };
+
+
+      const updatedDoc = {
         $set: {
           paid: true,
           transectionId: payment.TransectionId
         }
       }
       const updateResult = await bookingInfoCollection.updateOne(query, updatedDoc);
-      
-     
-      
+
+
+
       res.send(result);
     });
     //payment data inserting end
 
     // undold buttom update start
-    app.patch('/payments/:product_Id', async(req, res) =>{
-      const productinfo = req.params; 
+    app.patch('/payments/:product_Id', async (req, res) => {
+      const productinfo = req.params;
       const product_Id = productinfo.product_Id;
       console.log('productID', product_Id)
-      const query = {_id : new ObjectId(product_Id)};
+      const query = { _id: new ObjectId(product_Id) };
       const updatedDoc = {
         $set: {
           status: true,
@@ -301,75 +301,131 @@ async function run() {
     //undold buttom update end
 
 
-//delete seller start
-app.delete('/sellers/:_id', async(req, res)=>{
-  const _id = req.params._id;
-  const query = {_id : new ObjectId(_id)};
-  const result = await usersCollection.deleteOne(query);
-  res.send(result);
-})
-//delete seller end
-//delete buyer start
-app.delete('/buyer/:_id', async(req, res)=>{
-  const _id = req.params._id;
-  const query = {_id : new ObjectId(_id)};
-  const result = await usersCollection.deleteOne(query);
-  res.send(result);
-});
-//delete buyer end
+    //varified seller start
 
-//mybuyer part start
-app.get('/dashboard/mybuyerfind/:SellerEmail', verifyJWT, async(req, res) =>{
-  const decoded = req.decoded.email;
-  console.log('insidemybuyerfind', decoded.email);
-  const SellerEmail = req.params.SellerEmail;
-  console.log('sellerEmail', SellerEmail);
-  if(SellerEmail!== decoded.email){
-    return res.status(403).send({message: 'unauthorized access'});
-  }
-  const query = {SellerEmail};
-  const result = await bookingInfoCollection.find(query).toArray();
-  res.send(result);
-})
-//mybuyer part end
-app.delete('/mybuyer/:_id', async(req, res)=>{
-  const _id = req.params._id;
-  const query = {_id : new ObjectId(_id)};
-  const result = await bookingInfoCollection.deleteOne(query);
-  res.send(result);
-});
-app.delete('/myproduct/:_id', async(req, res)=>{
-  const _id = req.params._id;
-  const query = {_id : new ObjectId(_id)};
-  const result = await categoriesCollection.deleteOne(query);
-  res.send(result);
-});
-//add wishlist start
-app.post('/wishlish', async(req, res) =>{
-  const wishlish = req.body;
-   
-   const result = await WishLishfoCollection.insertOne(wishlish);
-   res.send(result);
-})
-//add wishlist end
+    // app.put('/sellerVerify/:SellerEmail', async(req, res) =>{
+    //   const SellerEmail = req.params.SellerEmail;
+    //   console.log('SellerEmail', SellerEmail);
+    //   const query = {SellerEmail};
+    //   const updatedDoc = {
+    //     $set: {
+    //       varify: true,
+    //     }
+    //   }
+    //   const updateResult = await categoriesCollection.updateOne(query, updatedDoc);
+    //   console.log('updateResult', updateResult);
+    //   res.send(updateResult);
+    // })
+    app.patch('/sellerVerify/:SellerEmail', async (req, res) => {
+      const SellerEmail = req.params.SellerEmail;
 
-//dashboard buyer wishList start
-app.get('/dashboard/wishlist/:buyerEmail', async(req, res) =>{
-  const buyerEmail = req.params.buyerEmail;
-  console.log('buyeremail wishList', buyerEmail);
-  const query = {buyerEmail};
-  const result = await WishLishfoCollection.find(query).toArray();
-  res.send(result);
+      console.log('SellerEmail ptch', SellerEmail)
+      const query = { SellerEmail };
+      const updatedDoc = {
+        $set: {
+          varify: true,
+        }
+      }
+      const updateresult = await categoriesCollection.updateMany(query, updatedDoc);
+      console.log('verify', updateresult);
+      res.send(updateresult);
+    })
+    // varified seller end
+    app.put('/userVerify/:_id', async(req, res) => {
+      const _id = req.params._id;
+      const filter = {_id: new ObjectId(_id)};
+      const option = {upsert: true};
+      const updatedDoc = {
+        $set: {
+          varify: true
+        }
+      }
+      const result = await usersCollection.updateOne(filter, updatedDoc, option);
+      // res.send(result);
+    });
+    app.get('/userverifycheak/:email', async(req, res) =>{
+      const email = req.params.email;
+      const query = {email};
+      const result = await usersCollection.findOne(query);
+      const verify = {varify: true};
+      const notverify = {verify: false};
+      if(!result.varify === true){
+      
+        return res.send(notverify);
+      }
+      res.send(verify);
+    })
 
-})
-//dashboard buyer wishList end
-app.delete('/wishlist/:productID', async(req, res)=>{
-  const productID = req.params.productID;
-  console.log('productId', productID);
-  const query = {productID: productID};
-  const result = await WishLishfoCollection.deleteOne(query);
-  res.send(result);
-});
+
+    //delete seller start
+    app.delete('/sellers/:_id', async (req, res) => {
+      const _id = req.params._id;
+      const query = { _id: new ObjectId(_id) };
+      const result = await usersCollection.deleteOne(query);
+      res.send(result);
+    })
+    //delete seller end
+    //delete buyer start
+    app.delete('/buyer/:_id', async (req, res) => {
+      const _id = req.params._id;
+      const query = { _id: new ObjectId(_id) };
+      const result = await usersCollection.deleteOne(query);
+      res.send(result);
+    });
+    //delete buyer end
+
+    //mybuyer part start
+    app.get('/dashboard/mybuyerfind/:SellerEmail', verifyJWT, async (req, res) => {
+      const decoded = req.decoded.email;
+      console.log('insidemybuyerfind', decoded.email);
+      const SellerEmail = req.params.SellerEmail;
+      console.log('sellerEmail', SellerEmail);
+      if (SellerEmail !== decoded.email) {
+        return res.status(403).send({ message: 'unauthorized access' });
+      }
+      const query = { SellerEmail };
+      const result = await bookingInfoCollection.find(query).toArray();
+      res.send(result);
+    })
+    //mybuyer part end
+    app.delete('/mybuyer/:_id', async (req, res) => {
+      const _id = req.params._id;
+      const query = { _id: new ObjectId(_id) };
+      const result = await bookingInfoCollection.deleteOne(query);
+      res.send(result);
+    });
+    app.delete('/myproduct/:_id', async (req, res) => {
+      const _id = req.params._id;
+      const query = { _id: new ObjectId(_id) };
+      const result = await categoriesCollection.deleteOne(query);
+      res.send(result);
+    });
+    //add wishlist start
+    app.post('/wishlish', async (req, res) => {
+      const wishlish = req.body;
+
+      const result = await WishLishfoCollection.insertOne(wishlish);
+      res.send(result);
+    })
+    //add wishlist end
+
+    //dashboard buyer wishList start
+    app.get('/dashboard/wishlist/:buyerEmail', async (req, res) => {
+      const buyerEmail = req.params.buyerEmail;
+      console.log('buyeremail wishList', buyerEmail);
+      const query = { buyerEmail };
+      const result = await WishLishfoCollection.find(query).toArray();
+      res.send(result);
+
+    })
+    //dashboard buyer wishList end
+    app.delete('/wishlist/:productID', async (req, res) => {
+      const productID = req.params.productID;
+      console.log('productId', productID);
+      const query = { productID: productID };
+      const result = await WishLishfoCollection.deleteOne(query);
+      res.send(result);
+    });
 
 
 
