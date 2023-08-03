@@ -18,3 +18,6 @@
 15. clint side hosted on firebase
 16.server deployed on vercel
 
+adminEmail: <admin@gmail.com>
+
+adminPassword: <12QWqw#$>
