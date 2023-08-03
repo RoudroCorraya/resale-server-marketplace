@@ -16,8 +16,16 @@ const corsConfig = {
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 }
-app.use(cors(corsConfig));
-app.options("", cors(corsConfig));
+// app.use(cors(corsConfig));
+app.use(
+  cors({
+    origin: ["https://resale-market-place.web.app"],
+    methods: "*",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "*",
+  })
+);
+// app.options("", cors(corsConfig));
 app.use(express.json());
 //middleware end
 
