@@ -10,7 +10,14 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET);
 const port = process.env.PORT || 5000;
 
 //middleware start
-app.use(cors());
+// app.use(cors());
+const corsConfig = {
+  origin: 'https://resale-server-market.vercel.app',
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+}
+app.use(cors(corsConfig));
+app.options("", cors(corsConfig));
 app.use(express.json());
 //middleware end
 
@@ -52,7 +59,7 @@ function verifyJWT(req, res, next) {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+     client.connect();
     //maek connection start
     const categoriesCollection = client.db('resale-categories').collection('allCategoris');
     const usersCollection = client.db('resale-categories').collection('users');
@@ -99,16 +106,17 @@ async function run() {
     //   res.send(eachcategories);
     // });
 
-    app.post('/users', verifyJWT, async (req, res) => {
-      const decoded = req.decoded.email;
-      console.log('inside user api', decoded.email);
+    app.post('/users',  async (req, res) => {
+      // const decoded = req.decoded.email;
+      // console.log('inside user api', decoded.email);
       const user = req.body;
       const userEmail = user.email;
       console.log('userjwt', userEmail);
-      if (userEmail !== decoded.email) {
-        return res.status(403).send({ message: 'unauthorized access' });
-      }
+      // if (userEmail !== decoded.email) {
+      //   return res.status(403).send({ message: 'unauthorized access' });
+      // }
       const result = await usersCollection.insertOne(user);
+      console.log('inside user api', result);
       res.send(result);
     });
     // app.get('/jwt', async(req, res) =>{
@@ -346,17 +354,45 @@ async function run() {
     });
     app.get('/userverifycheak/:email', async(req, res) =>{
       const email = req.params.email;
-      const query = {email};
-      const result = await usersCollection.findOne(query);
+      const filter = {email};
+      const result = await usersCollection.findOne(filter);
+      // const query = {SellerEmail: email};
+      // const result = await usersCollection.findOne(filter);
+      // if(result.varify){
+      //   const updatedDoc = {
+      //     $set: {
+      //       varify: true,
+      //     }
+      //   }
+      //   const updateresult = await categoriesCollection.updateOne(query, updatedDoc);
+      //   console.log('verify', updateresult);
+      //   res.send(updateresult);
+      // }
+
+     
       const verify = {varify: true};
-      const notverify = {verify: false};
-      if(!result.varify === true){
+      const notverify = {varify: false};
+      console.log('result.varify', result.varify);
+      if(result.varify !== true){
       
         return res.send(notverify);
       }
       res.send(verify);
-    })
+      
+    });
+    //catgegory product update verify start
+    app.get('/vari/:SellerEmail', async (req, res) => {
+      const email = req.params.SellerEmail;
 
+      
+      const query = { email };
+      const result = await usersCollection.findOne(query);
+      console.log('SellerEmail ptch', result)
+     
+     res.send(result);
+      
+    })
+//catgegory product update verify start
 
     //delete seller start
     app.delete('/sellers/:_id', async (req, res) => {
